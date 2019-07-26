@@ -3,6 +3,7 @@ import math
 import datetime
 
 import numpy as np
+from sklearn import preprocessing
 
 import time
 import torch
@@ -15,6 +16,7 @@ import argparse
 
 from data_loader import feed_infer
 from data_local_loader import test_data_loader, data_loader_with_split
+from diffusion import Diffusion
 from evaluation import evaluation_metrics
 
 import nsml
@@ -77,7 +79,11 @@ def _infer(model, root_path, test_loader=None, local_val=False):
         if time.time() - s_t > 10:
             print('Infer batch {}/{}.'.format(idx + 1, len(test_loader)))
 
-    score_matrix = feats.dot(feats.T)
+    diffusion = Diffusion(feats, cache_dir='./cache')
+    offline = diffusion.get_offline_results(n_trunc=1000, kd=50)
+    features = preprocessing.normalize(offline, norm='l2', axis=1)
+
+    score_matrix = features @ features.T
     np.fill_diagonal(score_matrix, -np.inf)
     top1_reference_indices = np.argmax(score_matrix, axis=1)
     top1_reference_ids = [
